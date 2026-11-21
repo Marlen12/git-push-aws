@@ -1,0 +1,41 @@
+name: Publicar web en S3
+
+# Se ejecuta con cada push a main y también a mano desde la pestaña Actions.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# id-token: write permite que GitHub emita el token OIDC que AWS va a verificar.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    # Si todavía no configuraste las variables (Paso 5), el job se salta sin fallar.
+    if: ${{ vars.S3_BUCKET != '' && vars.AWS_ROLE_ARN != '' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v5
+
+      - name: Obtener credenciales de AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Subir la carpeta site al bucket
+        run: aws s3 sync site/ "s3://${{ vars.S3_BUCKET }}" --delete
+
+      - name: Mostrar la dirección de la web
+        run: |
+          {
+            echo "### Web publicada"
+            echo ""
+            echo "Bucket: \`${{ vars.S3_BUCKET }}\`"
+            echo ""
+            echo "Abre el **Bucket website endpoint** que copiaste en el Paso 2 (S3 → tu bucket → Properties → Static website hosting)."
+          } >> "$GITHUB_STEP_SUMMARY"
